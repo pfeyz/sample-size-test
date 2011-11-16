@@ -3,22 +3,22 @@ import itertools
 import random
 from sys import argv
 
-from  talkbank_parser import MorParser
+from talkbank_parser import MorParser
 
 class NGramException(Exception):
     pass
 
 def generate_ngrams(n, words):
-    """ Generates ngrams from list of words
+    """ Generates ngram strings from list of words
 
     >>> generate_ngrams(2, 'the boy beat the ram'.split(' '))
-    [['the', 'boy'], ['boy', 'beat'], ['beat', 'the'], ['the', 'ram']]
+    ['the boy', 'boy beat', 'beat the', 'the ram']
 
     >>> generate_ngrams(1, 'we are family'.split(' '))
-    [['we'], ['are'], ['family']]
+    ['we', 'are', 'family']
 
     >>> generate_ngrams(3, 'this aggression will not stand man'.split(' '))
-    [['this', 'aggression', 'will'], ['aggression', 'will', 'not'], ['will', 'not', 'stand'], ['not', 'stand', 'man']]
+    ['this aggression will', 'aggression will not', 'will not stand', 'not stand man']
 
     >>> generate_ngrams(4, 'this cat ate'.split(' '))
     Traceback (most recent call last):
@@ -29,7 +29,9 @@ def generate_ngrams(n, words):
 
     if n > len(words):
         raise NGramException('Not enough words to generate an ngram')
-    return [words[i:i+n]
+    if n < 1:
+        raise NGramException('Cannot compute ngram with n < 1: %s' % n)
+    return [" ".join(words[i:i+n])
             for i in range(len(words) - n + 1)]
 
 def pick_random_ngrams(n, samples, utterances):
