@@ -20,6 +20,21 @@ from talkbank_parser import MorParser
 class NGramException(Exception):
     pass
 
+def meanstdv(x):
+    """ from
+    http://www.physics.rutgers.edu/~masud/computing/WPark_recipes_in_python.html
+    """
+
+    from math import sqrt
+    n, mean, std = len(x), 0, 0
+    for a in x:
+        mean = mean + a
+    mean = mean / float(n)
+    for a in x:
+        std = std + (a - mean)**2
+    std = sqrt(std / float(n-1))
+    return mean, std
+
 def generate_ngrams(n, words):
     """ Generates ngram strings from list of words
 
@@ -172,10 +187,9 @@ if __name__ == "__main__":
     word = lambda x: x.word
     tag = lambda x: x.tag
     sep = "-" * 20 + "\n"
+    reps = 100
     parser = MorParser("{http://www.talkbank.org/ns/talkbank}")
     filenames = glob.glob("/home/paul/corpora/Brown/Eve/*.xml")
-#    filenames = glob.glob("/home/paul/corpora/sb/output-xml/*.xml")[0:1]
-    print(filenames)
     corpus = list(itertools.chain(*(parser.parse(i) for i in filenames)))
     stat_fun = lambda x, y, feature: do_comparison(dice_stat, x, y, 3,
                                                    feature, corpus, 'MOT')
@@ -185,12 +199,14 @@ if __name__ == "__main__":
         for feature in ("pos", "word"):
             print("%s %s" % (pair_name, feature.capitalize()))
             for (x, y) in pairs:
-                print("  %s %s = %s" %(x, y, stat_fun(x, y, feature)))
+                vals = [stat_fun(x, y, feature) for _ in range(reps)]
+                print("  %s %s = %s" %(x, y, meanstdv(vals)))
 
     for feature, pairs in (("pos", tag_pairs), ("word", word_pairs)):
         print("Eve-Peter %s" % (feature.capitalize()))
         for (x, y) in pairs:
-            print("  %s %s = %s" %(x, y, stat_fun(x, y, feature)))
+            val = sum([stat_fun(x, y, feature) for _ in range(reps)])
+            print("  %s %s = %s" %(x, y, meanstdv(vals)))
 
     # args = parse_args(argv[1:])
     # for i in main(args):
