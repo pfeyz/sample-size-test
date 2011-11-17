@@ -1,7 +1,19 @@
+#! /usr/bin/env python2
+
+"""
+TODO:
+
+  - change sample_size to mean the number of ngrams per sample.
+
+  - when atomic unit is set to utterance, generate ngrams from utterances until
+    there are more than sample_size tokens ngrams generated.
+
+"""
+from __future__ import print_function
 import argparse
 import itertools
 import random
-from sys import argv
+import glob
 
 from talkbank_parser import MorParser
 
@@ -134,13 +146,52 @@ def parse_args(args):
         help='The CHILDES XML file to read')
     return parser.parse_args(args)
 
+def do_comparison(fun, x_size, y_size, n, feature_name, corpus, target_speaker):
+    if feature_name not in ("word", "pos"):
+        raise Exception("feature_name must be 'word' or 'pos'")
+    feat = (lambda x: x.pos) if feature_name == 'pos' else lambda x: x.word
+    utterances = [[feat(u) for u in utterance]
+                  for speaker, utterance in corpus
+                  if len(utterance) >= n or speaker == target_speaker]
+    picker = pick_random_utterances
+    return fun(picker(n, x_size, utterances),
+               picker(n, y_size, utterances))
+
+    # make_grams = pick_random_utterances if args.atomic_unit == 'utterance' \
+    #       else pick_random_ngrams
+
 if __name__ == "__main__":
-    args = parse_args(argv[1:])
-    print args
+    base_sizes = (100, 200, 500, 1000, 5000)
+    equal_pairs = [(i, i) for i in base_sizes]
+    combo_pairs = [(a, b) for a, b in itertools.combinations(base_sizes, 2)
+                   if a != b]
+    tag_pairs = [(175, 412), (308, 433), (362, 498), (425,  540), (243, 548),
+                 (428, 598), (556, 600), (659, 632)]
+    word_pairs = [(1004, 3652), (2159, 3886), (2607, 4409), (3352, 6277),
+                  (898, 6708), (3623, 8622), (5673, 9259), (8794, 10368)]
+    word = lambda x: x.word
+    tag = lambda x: x.tag
+    sep = "-" * 20 + "\n"
     parser = MorParser("{http://www.talkbank.org/ns/talkbank}")
-    utterances = [[u.word for u in utterance]
-                  for speaker, utterance in parser.parse(args.filename)
-                  if len(utterance) >= args.ngram_size]
-    fun = pick_random_utterances if args.atomic_unit == 'utterance' \
-          else pick_random_ngrams
-    print fun(args.ngram_size, args.sample_size, utterances)
+    filenames = glob.glob("/home/paul/corpora/Brown/Eve/*.xml")
+#    filenames = glob.glob("/home/paul/corpora/sb/output-xml/*.xml")[0:1]
+    print(filenames)
+    corpus = list(itertools.chain(*(parser.parse(i) for i in filenames)))
+    stat_fun = lambda x, y, feature: do_comparison(dice_stat, x, y, 3,
+                                                   feature, corpus, 'MOT')
+
+    for pair_name, pairs in (("Equal Pairs", equal_pairs),
+                             ("Different-sized Pairs", combo_pairs)):
+        for feature in ("pos", "word"):
+            print("%s %s" % (pair_name, feature.capitalize()))
+            for (x, y) in pairs:
+                print("  %s %s = %s" %(x, y, stat_fun(x, y, feature)))
+
+    for feature, pairs in (("pos", tag_pairs), ("word", word_pairs)):
+        print("Eve-Peter %s" % (feature.capitalize()))
+        for (x, y) in pairs:
+            print("  %s %s = %s" %(x, y, stat_fun(x, y, feature)))
+
+    # args = parse_args(argv[1:])
+    # for i in main(args):
+    #     print i
