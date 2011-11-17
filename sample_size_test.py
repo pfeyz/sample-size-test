@@ -12,11 +12,13 @@ TODO:
 from __future__ import print_function
 import argparse
 import itertools
+import pickle
 import random
 import glob
+from datetime import datetime
 from multiprocessing import Pool
 
-from talkbank_parser import MorParser
+#from talkbank_parser import MorParser
 
 class NGramException(Exception):
     pass
@@ -46,7 +48,7 @@ def generate_ngrams(n, words):
     ['we', 'are', 'family']
 
     >>> generate_ngrams(3, 'this aggression will not stand man'.split(' '))
-    ['this aggression will', 'aggression will not', 'will not stand', 'not stand man']
+     ['this aggression will', 'aggression will not', 'will not stand', 'not stand man']
 
     >>> generate_ngrams(4, 'this cat ate'.split(' '))
     Traceback (most recent call last):
@@ -140,35 +142,12 @@ def mcnemar_stat(a,b,c,d):
     # square = all tokens produced in (a or b) and (c or d)
     pass
 
-def parse_args(args):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--comparison-function', action='store',
-                        choices=("dice", "jaccard", "mcnemar"), default="dice")
-    parser.add_argument('-i', '--iterations', action='store', type=int,
-        help="The number of times to run the tests", default=1)
-    parser.add_argument('-n', '--ngram-size', action='store', type=int,
-        help="The size of the ngrams to use", required=True)
-    parser.add_argument('-f', '--feature', action='store',
-        choices=('word', 'pos'), default='pos')
-    parser.add_argument('-sample-size', '-s', action='store', type=tuple,
-        help="The number of samples to use. What this means depends on the "
-        "atomic_unit parameter.", required=True)
-    parser.add_argument('-a', '--atomic-unit', action='store', required=True,
-        choices=("utterance", "ngram"),
-        help=("'utterance' will select SAMPLE_SIZE number of utterances and then "
-              "make ngrams out of all of them. 'ngram' will generate SAMPLE_SIZE "
-              "ngrams."))
-    parser.add_argument('filename', action='store',
-        help='The CHILDES XML file to read')
-    return parser.parse_args(args)
-
-def do_comparison(fun, x_size, y_size, n, feature_name, corpus, target_speaker):
+def do_comparison(fun, x_size, y_size, n, feature_name, corpus):
     if feature_name not in ("word", "pos"):
         raise Exception("feature_name must be 'word' or 'pos'")
     feat = (lambda x: x.pos) if feature_name == 'pos' else lambda x: x.word
     utterances = [[feat(u) for u in utterance]
-                  for speaker, utterance in corpus
-                  if len(utterance) >= n or speaker == target_speaker]
+                  for _, utterance in corpus if len(utterance) >= n]
     picker = pick_random_utterances
     return fun(picker(n, x_size, utterances),
                picker(n, y_size, utterances))
@@ -181,11 +160,18 @@ def run_fun(stat_fun, x, y, feature, reps):
 
 def stat_fun(args):
     x, y, feature, corpus, reps = args
-    vals = [do_comparison(dice_stat, x, y, 3, feature, corpus, 'MOT')
+    vals = [do_comparison(dice_stat, x, y, 3, feature, corpus)
             for _ in range(reps)]
     return x, y, feature, meanstdv(vals)
 
+def report(action, then, start):
+    n = datetime.now()
+    print("%s in %s [%s]" % (action, n - then, n - start))
+    return n
+
 if __name__ == "__main__":
+    start_time = datetime.now()
+    then = start_time
     base_sizes = (100, 200, 500, 1000, 5000)
     equal_pairs = [(i, i) for i in base_sizes]
     combo_pairs = [(a, b) for a, b in itertools.combinations(base_sizes, 2)
@@ -198,11 +184,16 @@ if __name__ == "__main__":
     tag = lambda x: x.tag
     sep = "-" * 20 + "\n"
     reps = 10000
-    parser = MorParser("{http://www.talkbank.org/ns/talkbank}")
+    # parser = MorParser("{http://www.talkbank.org/ns/talkbank}")
     filenames = glob.glob("/home/paul/corpora/Brown/Eve/*.xml")
-    corpus = list(itertools.chain(*(parser.parse(i) for i in filenames)))
-
+    corpus = pickle.load(open("data.pk"))
+    # corpus = list(itertools.chain(*(parser.parse(i) for i in filenames)))
+    # then = report("parsed xml", then, start_time)
     pool = Pool(processes=2)
+    print("Starting analysis - reps: %s, files: %s" %
+          (reps, len(filenames)))
+    then = report("set up", then, start_time)
+
     for pair_name, pairs in (("Equal Pairs", equal_pairs),
                              ("Different-sized Pairs", combo_pairs)):
         for feature in ("pos", "word"):
@@ -211,32 +202,24 @@ if __name__ == "__main__":
             print("%s %s" % (pair_name, feature.capitalize()))
             for (x, y) in pairs:
                 args.append([x, y, feature, corpus, reps])
-                # pool.apply_async(stat_fun,
-                #     [x, y, feature, corpus, reps],
-                #     callback=lambda x: print(x))
-
-                # vals = [stat_fun(x, y, feature) for _ in range(reps)]
-                # print("  %s %s = %s" %(x, y, meanstdv(vals)))
             for x, y, feature, (mean, stdev) in pool.map(stat_fun, args):
                 print("dice(%s %s) = %s, %s" % (x, y, mean, stdev))
             del args
+            then = report("ran analysis", then, start_time)
+
     for feature, pairs in (("pos", tag_pairs), ("word", word_pairs)):
         print()
         print("Eve-Peter %s" % (feature.capitalize()))
         args = []
         for (x, y) in pairs:
             args.append([x, y, feature, corpus, reps])
-            # vals = [stat_fun(x, y, feature) for _ in range(reps)]
         for x, y, feature, (mean, stdev) in pool.map(stat_fun, args):
             print("dice(%s %s) = %s, %s" % (x, y, mean, stdev))
         del args
-        # print("  %s %s = %s" %(x, y, meanstdv(vals)))
+        then = report("ran analysis", then, start_time)
 
-    # args = parse_args(argv[1:])
-    # for i in main(args):
-    #     print i
     pool.close()
-    pool.join()
+
 
 
 
