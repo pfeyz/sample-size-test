@@ -195,7 +195,9 @@ class MorParser(Parser):
     def parse_mor_element(self, text, element):
         """ need to handle mor-pre and mor-post as well as mw """
         if element is None:
-            pdb.set_trace()
+            # TODO: fix this. it breaks when encountering replacements
+            return MorToken("", "", "", "", "", "", ""),
+            # pdb.set_trace()
         assert(element.tag == self.ns("mor"))
         compound = self._find(element, "mwc")
         base_word, post_clitic_words = self.split_clitic_wordform(text)
@@ -206,8 +208,8 @@ class MorParser(Parser):
             post_clitics = [self.parse_clitic(post_clitic_words.pop(), c)
                             for c in self._findall(element, "mor-post")]
         except IndexError:
-            print text
-            dump(element)
+            #print text
+            #dump(element)
 
             post_clitics = [self.parse_clitic("?", c)
                             for c in self._findall(element, "mor-post")]
@@ -231,6 +233,8 @@ class MorParser(Parser):
         # return text
 
     def extract_word(self, mw_element):
+        if mw_element.text is None:
+            mw_element.text = ""
         text = mw_element.text + "".join([p.tail
                                     for p in list(mw_element)
                                     if p.tail is not None])
@@ -238,6 +242,7 @@ class MorParser(Parser):
         return text
 
     def parse(self, filename):
+        print "Parsing", filename
         doc = ElementTree(file=filename)
         for utterance in self._findall(doc, "u"):
             speaker = utterance.get("who")
