@@ -14,6 +14,7 @@ import argparse
 import itertools
 import random
 import glob
+from multiprocessing import Pool
 
 from talkbank_parser import MorParser
 
@@ -175,6 +176,15 @@ def do_comparison(fun, x_size, y_size, n, feature_name, corpus, target_speaker):
     # make_grams = pick_random_utterances if args.atomic_unit == 'utterance' \
     #       else pick_random_ngrams
 
+def run_fun(stat_fun, x, y, feature, reps):
+    return meanstdv([stat_fun(x, y, feature) for _ in range(reps)])
+
+def stat_fun(args):
+    x, y, feature, corpus, reps = args
+    vals = [do_comparison(dice_stat, x, y, 3, feature, corpus, 'MOT')
+            for _ in range(reps)]
+    return x, y, feature, meanstdv(vals)
+
 if __name__ == "__main__":
     base_sizes = (100, 200, 500, 1000, 5000)
     equal_pairs = [(i, i) for i in base_sizes]
@@ -187,27 +197,46 @@ if __name__ == "__main__":
     word = lambda x: x.word
     tag = lambda x: x.tag
     sep = "-" * 20 + "\n"
-    reps = 100
+    reps = 10000
     parser = MorParser("{http://www.talkbank.org/ns/talkbank}")
     filenames = glob.glob("/home/paul/corpora/Brown/Eve/*.xml")
     corpus = list(itertools.chain(*(parser.parse(i) for i in filenames)))
-    stat_fun = lambda x, y, feature: do_comparison(dice_stat, x, y, 3,
-                                                   feature, corpus, 'MOT')
 
+    pool = Pool(processes=2)
     for pair_name, pairs in (("Equal Pairs", equal_pairs),
                              ("Different-sized Pairs", combo_pairs)):
         for feature in ("pos", "word"):
+            args = []
+            print()
             print("%s %s" % (pair_name, feature.capitalize()))
             for (x, y) in pairs:
-                vals = [stat_fun(x, y, feature) for _ in range(reps)]
-                print("  %s %s = %s" %(x, y, meanstdv(vals)))
+                args.append([x, y, feature, corpus, reps])
+                # pool.apply_async(stat_fun,
+                #     [x, y, feature, corpus, reps],
+                #     callback=lambda x: print(x))
 
+                # vals = [stat_fun(x, y, feature) for _ in range(reps)]
+                # print("  %s %s = %s" %(x, y, meanstdv(vals)))
+            for x, y, feature, (mean, stdev) in pool.map(stat_fun, args):
+                print("dice(%s %s) = %s, %s" % (x, y, mean, stdev))
+            del args
     for feature, pairs in (("pos", tag_pairs), ("word", word_pairs)):
+        print()
         print("Eve-Peter %s" % (feature.capitalize()))
+        args = []
         for (x, y) in pairs:
-            val = sum([stat_fun(x, y, feature) for _ in range(reps)])
-            print("  %s %s = %s" %(x, y, meanstdv(vals)))
+            args.append([x, y, feature, corpus, reps])
+            # vals = [stat_fun(x, y, feature) for _ in range(reps)]
+        for x, y, feature, (mean, stdev) in pool.map(stat_fun, args):
+            print("dice(%s %s) = %s, %s" % (x, y, mean, stdev))
+        del args
+        # print("  %s %s = %s" %(x, y, meanstdv(vals)))
 
     # args = parse_args(argv[1:])
     # for i in main(args):
     #     print i
+    pool.close()
+    pool.join()
+
+
+
