@@ -87,15 +87,23 @@ def pick_random_utterances(n, samples, utterances):
 
 def dice_stat(a, b):
     # calculate the dice coefficient
+    a, b = set(a), set(b)
     shared = len(a & b)
-    coeff = (2.0 * shared)/(len(a) + len(b))
+    try:
+        coeff = (2.0 * shared)/(len(a) + len(b))
+    except ZeroDivisionError:
+        return 0
     return round(coeff, 5)
 
 # Jaccard
 def jaccard_stat(a, b):
     # calculate the jaccard coefficient
+    a, b = set(a), set(b)
     shared = len(a & b)
-    coeff = shared / (len(a) + len(b) - shared)
+    try:
+        coeff = shared / float(len(a) + len(b) - shared)
+    except ZeroDivisionError:
+        return 0
     return round(coeff, 5)
 
 #McNemar
