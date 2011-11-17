@@ -114,9 +114,15 @@ def mcnemar_stat(a,b,c,d):
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--comparison-function', action='store',
+                        choices=("dice", "jaccard", "mcnemar"), default="dice")
+    parser.add_argument('-i', '--iterations', action='store', type=int,
+        help="The number of times to run the tests", default=1)
     parser.add_argument('-n', '--ngram-size', action='store', type=int,
         help="The size of the ngrams to use", required=True)
-    parser.add_argument('-sample-size', '-s', action='store', type=int,
+    parser.add_argument('-f', '--feature', action='store',
+        choices=('word', 'pos'), default='pos')
+    parser.add_argument('-sample-size', '-s', action='store', type=tuple,
         help="The number of samples to use. What this means depends on the "
         "atomic_unit parameter.", required=True)
     parser.add_argument('-a', '--atomic-unit', action='store', required=True,
