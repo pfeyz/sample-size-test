@@ -3,10 +3,10 @@
 
 import abc
 import itertools
-import pdb
 import unittest
 import re
-from xml.etree.cElementTree import ElementTree, dump
+from os import path
+from xml.etree.cElementTree import ElementTree
 
 from datatypes import MorToken
 
@@ -243,6 +243,7 @@ class MorParser(Parser):
 
     def parse(self, filename):
         print "Parsing", filename
+        assert path.exists(filename)
         doc = ElementTree(file=filename)
         for utterance in self._findall(doc, "u"):
             speaker = utterance.get("who")

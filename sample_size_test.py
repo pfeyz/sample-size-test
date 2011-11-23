@@ -10,33 +10,17 @@ TODO:
 
 """
 from __future__ import print_function
-import argparse
 import itertools
 import pickle
 import random
-import glob
 from datetime import datetime
 from multiprocessing import Pool
 
-#from talkbank_parser import MorParser
+from os import path
+from stats import dice_stat, meanstdv
 
 class NGramException(Exception):
     pass
-
-def meanstdv(x):
-    """ from
-    http://www.physics.rutgers.edu/~masud/computing/WPark_recipes_in_python.html
-    """
-
-    from math import sqrt
-    n, mean, std = len(x), 0, 0
-    for a in x:
-        mean = mean + a
-    mean = mean / float(n)
-    for a in x:
-        std = std + (a - mean)**2
-    std = sqrt(std / float(n-1))
-    return mean, std
 
 def generate_ngrams(n, words):
     """ Generates ngram strings from list of words
@@ -64,114 +48,35 @@ def generate_ngrams(n, words):
     return [" ".join(words[i:i+n])
             for i in range(len(words) - n + 1)]
 
-def pick_random_ngrams(n, samples, utterances):
-    r""" Picks SAMPLES number of ngrams from utterances.
-    Utterances should be a list of list of words.
-
-    >>> utterances = [u.split(' ') for u in ["the man taught the dog",
-    ... "we are family", "don't let anybody out",
-    ... "harry caught himself being an idiot again",
-    ... "stephen read the newspaper with his feet up on an ottoman",
-    ... "jon's lazy susan is full of crazy things"]]
-
-    >>> random.seed(5)
-    >>> len(pick_random_ngrams(2, 10, utterances))
-    10
-
-    """
-
-    ngrams = [generate_ngrams(n, ut) for ut in utterances]
-    all_grams = list(itertools.chain(*ngrams))
-    return [random.choice(all_grams) for i in range(samples)]
-
-def pick_random_utterances(n, samples, utterances):
-    """
-    Picks SAMPLES number of random utterances and generates bigrams from all
-    selected.
-
-    >>> utterances = [u.split(' ') for u in ["the man taught the dog",
-    ... "we are family", "don't let anybody out",
-    ... "harry caught himself being an idiot again",
-    ... "stephen read the newspaper with his feet up on an ottoman",
-    ... "jon's lazy susan is full of crazy things"]]
-
-    >>> sample_size = 50
-    >>> ngram_size = 2
-    >>> longest_utterance = max(len(u) for u in utterances)
-    >>> grams = pick_random_utterances(ngram_size, sample_size, utterances)
-    >>> len(grams) >= sample_size < sample_size + (longest_utterance - ngram_size)
-    True
-
-    """
-    population = [u for u in utterances if len(u) >= n]
-    # if len(population) < samples:
-    #     raise Warning("There are more pidgeons than holes")
+def pick_random_utterances(samples, ngrams):
     num_ngrams = 0
-    ngrams = []
+    picked = []
     while num_ngrams < samples:
-        picked_utterance = random.choice(population)
-        grams = generate_ngrams(n, picked_utterance)
-        num_ngrams += len(grams)
-        ngrams.extend(grams)
-    return ngrams
-
-def dice_stat(a, b):
-    # calculate the dice coefficient
-    a, b = set(a), set(b)
-    shared = len(a & b)
-    try:
-        coeff = (2.0 * shared)/(len(a) + len(b))
-    except ZeroDivisionError:
-        return 0
-    return round(coeff, 5)
-
-# Jaccard
-def jaccard_stat(a, b):
-    # calculate the jaccard coefficient
-    a, b = set(a), set(b)
-    shared = len(a & b)
-    try:
-        coeff = shared / float(len(a) + len(b) - shared)
-    except ZeroDivisionError:
-        return 0
-    return round(coeff, 5)
-
-#McNemar
-def mcnemar_stat(a,b,c,d):
-    # calculate the mcnemar
-    # square = all tokens produced in (a or b) and (c or d)
-    pass
-
-def do_comparison(fun, x_size, y_size, n, feature_name, corpus):
-    if feature_name not in ("word", "pos"):
-        raise Exception("feature_name must be 'word' or 'pos'")
-    feat = (lambda x: x.pos) if feature_name == 'pos' else lambda x: x.word
-    utterances = [[feat(u) for u in utterance]
-                  for _, utterance in corpus if len(utterance) >= n]
-    picker = pick_random_utterances
-    return fun(picker(n, x_size, utterances),
-               picker(n, y_size, utterances))
-
-    # make_grams = pick_random_utterances if args.atomic_unit == 'utterance' \
-    #       else pick_random_ngrams
-
-def run_fun(stat_fun, x, y, feature, reps):
-    return meanstdv([stat_fun(x, y, feature) for _ in range(reps)])
+        g = random.choice(ngrams)
+        num_ngrams += len(g)
+        picked.extend(g)
+    return picked
 
 def stat_fun(args):
-    x, y, feature, corpus, reps = args
-    vals = [do_comparison(dice_stat, x, y, 3, feature, corpus)
-            for _ in range(reps)]
-    return x, y, feature, meanstdv(vals)
+    x, y, ngrams, reps = args
+    vals = [dice_stat(pick_random_utterances(x, ngrams),
+                      pick_random_utterances(y, ngrams))
+                      for _ in range(reps)]
+    return x, y, meanstdv(vals)
 
 def report(action, then, start):
     n = datetime.now()
-    print("%s in %s [%s]" % (action, n - then, n - start))
+    print("\n%s in %s [%s]" % (action, n - then, n - start))
     return n
 
 if __name__ == "__main__":
-    start_time = datetime.now()
-    then = start_time
+    utterance_file_base = path.join('utterances', 'MOT')
+    reps = 10000
+    n_size = 3
+
+    word_file = utterance_file_base + "-word.pk"
+    pos_file = utterance_file_base + "-pos.pk"
+
     base_sizes = (100, 200, 500, 1000, 5000)
     equal_pairs = [(i, i) for i in base_sizes]
     combo_pairs = [(a, b) for a, b in itertools.combinations(base_sizes, 2)
@@ -180,46 +85,35 @@ if __name__ == "__main__":
                  (428, 598), (556, 600), (659, 632)]
     word_pairs = [(1004, 3652), (2159, 3886), (2607, 4409), (3352, 6277),
                   (898, 6708), (3623, 8622), (5673, 9259), (8794, 10368)]
-    word = lambda x: x.word
-    tag = lambda x: x.tag
-    sep = "-" * 20 + "\n"
-    reps = 10000
-    # parser = MorParser("{http://www.talkbank.org/ns/talkbank}")
-    filenames = glob.glob("/home/paul/corpora/Brown/Eve/*.xml")
-    corpus = pickle.load(open("data.pk"))
-    # corpus = list(itertools.chain(*(parser.parse(i) for i in filenames)))
-    # then = report("parsed xml", then, start_time)
-    pool = Pool(processes=2)
-    print("Starting analysis - reps: %s, files: %s" %
-          (reps, len(filenames)))
-    then = report("set up", then, start_time)
 
+    start_time = then = datetime.now()
+    word_utterances = pickle.load(open(word_file))
+    pos_utterances = pickle.load(open(pos_file))
+    pool = Pool()
+    word_ngrams = [generate_ngrams(n_size, u) for u in word_utterances]
+    pos_ngrams = [generate_ngrams(n_size, u) for u in pos_utterances]
+
+    then = report("set up", then, start_time)
+    print("Starting analysis")
     for pair_name, pairs in (("Equal Pairs", equal_pairs),
                              ("Different-sized Pairs", combo_pairs)):
-        for feature in ("pos", "word"):
-            args = []
-            print()
+        for feature, grams in (("pos", pos_ngrams), ("word", word_ngrams)):
             print("%s %s" % (pair_name, feature.capitalize()))
-            for (x, y) in pairs:
-                args.append([x, y, feature, corpus, reps])
-            for x, y, feature, (mean, stdev) in pool.map(stat_fun, args):
+            args = [(x, y, grams, reps) for x, y in pairs]
+            for x, y, (mean, stdev) in pool.map(stat_fun, args):
                 print("dice(%s %s) = %s, %s" % (x, y, mean, stdev))
             del args
             then = report("ran analysis", then, start_time)
 
-    for feature, pairs in (("pos", tag_pairs), ("word", word_pairs)):
-        print()
+    for feature, pairs, grams in (("pos", tag_pairs, pos_ngrams),
+                                  ("word", word_pairs, word_ngrams)):
         print("Eve-Peter %s" % (feature.capitalize()))
-        args = []
-        for (x, y) in pairs:
-            args.append([x, y, feature, corpus, reps])
-        for x, y, feature, (mean, stdev) in pool.map(stat_fun, args):
+        args = [(x, y, grams, reps) for x, y in pairs]
+        for x, y, (mean, stdev) in pool.map(stat_fun, args):
             print("dice(%s %s) = %s, %s" % (x, y, mean, stdev))
         del args
         then = report("ran analysis", then, start_time)
 
     pool.close()
-
-
-
+    pool.join()
 
