@@ -81,7 +81,7 @@ if __name__ == "__main__":
     equal_pairs = [(i, i) for i in base_sizes]
     combo_pairs = [(a, b) for a, b in itertools.combinations(base_sizes, 2)
                    if a != b]
-    tag_pairs = [(175, 412), (308, 433), (362, 498), (425,  540), (243, 548),
+    tag_pairs = [(175, 412), (308, 433), (362, 498), (425, 540), (243, 548),
                  (428, 598), (556, 600), (659, 632)]
     word_pairs = [(1004, 3652), (2159, 3886), (2607, 4409), (3352, 6277),
                   (898, 6708), (3623, 8622), (5673, 9259), (8794, 10368)]
@@ -116,4 +116,3 @@ if __name__ == "__main__":
 
     pool.close()
     pool.join()
-
