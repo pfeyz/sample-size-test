@@ -29,7 +29,8 @@ if __name__ == "__main__":
                     "and xml files")
 
     name = splitext(basename(filenames[0]))[0]
-    utterances = extract_feature_utterances(filenames, feature, int(cutoff))
+    utterances = extract_feature_utterances(filenames, feature,
+                                            speaker, int(cutoff))
     outfn = pjoin(here, 'utterances', "%s-%s.pk" % (speaker, feature))
     print("pickling utterances")
     with open(outfn, 'w') as fh:
