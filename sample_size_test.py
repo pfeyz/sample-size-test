@@ -64,15 +64,20 @@ def stat_fun(args):
                       for _ in range(reps)]
     return x, y, meanstdv(vals)
 
-def report(action, then, start):
-    n = datetime.now()
-    print("\n%s in %s [%s]" % (action, n - then, n - start))
-    return n
+def logger():
+    times = [datetime.now(), datetime.now()]
+    def log(message):
+        start_time, last_job = times
+        now = datetime.now()
+        print("\n%s in %s [%s]" % (message, now - last_job, now - start_time))
+        times[1] = now
+    return log
 
 if __name__ == "__main__":
+    log = logger()
     utterance_file_base = path.join('utterances', 'MOT')
     reps = 10000
-    n_size = 3
+    n_size = 2
 
     word_file = utterance_file_base + "-word.pk"
     pos_file = utterance_file_base + "-pos.pk"
@@ -93,7 +98,7 @@ if __name__ == "__main__":
     word_ngrams = [generate_ngrams(n_size, u) for u in word_utterances]
     pos_ngrams = [generate_ngrams(n_size, u) for u in pos_utterances]
 
-    then = report("set up", then, start_time)
+    log("set up")
     print("Starting analysis")
     for pair_name, pairs in (("Equal Pairs", equal_pairs),
                              ("Different-sized Pairs", combo_pairs)):
@@ -103,7 +108,7 @@ if __name__ == "__main__":
             for x, y, (mean, stdev) in pool.map(stat_fun, args):
                 print("dice(%s %s) = %s, %s" % (x, y, mean, stdev))
             del args
-            then = report("ran analysis", then, start_time)
+            log("ran analysis")
 
     for feature, pairs, grams in (("pos", tag_pairs, pos_ngrams),
                                   ("word", word_pairs, word_ngrams)):
@@ -112,7 +117,7 @@ if __name__ == "__main__":
         for x, y, (mean, stdev) in pool.map(stat_fun, args):
             print("dice(%s %s) = %s, %s" % (x, y, mean, stdev))
         del args
-        then = report("ran analysis", then, start_time)
+        log("ran analysis")
 
     pool.close()
     pool.join()
