@@ -242,7 +242,7 @@ class MorParser(Parser):
         return text
 
     def parse(self, filename):
-        print "Parsing", filename
+        #print "Parsing", filename
         assert path.exists(filename)
         doc = ElementTree(file=filename)
         for utterance in self._findall(doc, "u"):
