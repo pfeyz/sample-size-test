@@ -2,8 +2,7 @@ import itertools
 import glob
 
 from sample_size_test import generate_ngrams
-#from sample_size_test import
-from talkbank_parser import MorParser
+from util.talkbank_parser import MorParser
 
 if __name__ == "__main__":
     parser = MorParser("{http://www.talkbank.org/ns/talkbank}")

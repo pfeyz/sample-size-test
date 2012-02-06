@@ -8,8 +8,8 @@ import sys
 from os.path import dirname, abspath, basename, splitext
 from os.path import join as pjoin
 
-from talkbank_parser import MorParser
-from tag_translations import rewrite_rules
+from util.talkbank_parser import MorParser
+from util.tagset_rewrite_rules import cha_to_larc as rewrite_rules
 
 here = dirname(abspath(__file__))
 

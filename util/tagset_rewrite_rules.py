@@ -1,4 +1,4 @@
-rewrite_rules = [
+cha_to_larc = [
     ({"pos": "adj"}, "adj"),
     ({"pos": "adj", "sxfx": ["CP"]}, "adj"),
     ({"pos": "adj", "sxfx": ["SP"]}, "adj"),

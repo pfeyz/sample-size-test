@@ -3,7 +3,7 @@ import sys
 from os.path import basename
 
 from dump_speaker_data import rewriter
-from talkbank_parser import MorParser
+from util.talkbank_parser import MorParser
 
 def xml_to_tagfile(filename):
     parser = MorParser("{http://www.talkbank.org/ns/talkbank}")
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     files = sorted(glob.glob("/home/paul/corpora/Brown/Eve/*.xml"))
     for xmlfile in files:
         sys.stderr.write(xmlfile + "\n")
-        outf = ('split-outputs/MOT-%s' % basename(xmlfile)).rstrip('.xml') + '.txt'
+        outf = ('data/MOT-%s' % basename(xmlfile)).rstrip('.xml') + '.txt'
         print outf
         with open(outf, 'w') as fh:
             for speaker, words in xml_to_tagfile(xmlfile):
